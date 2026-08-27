@@ -1,0 +1,50 @@
+# ==========================================
+# Build & Binary Outputs
+# ==========================================
+[Bb]in/
+[Oo]bj/
+[LLEe]og/
+*.log
+
+# Project-specific error logs
+SystemCheck_Errors.log
+
+# ==========================================
+# Visual Studio & VS Code IDE files
+# ==========================================
+.vs/
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+*.suo
+*.user
+*.userosv
+*.sln.docstates
+
+# ==========================================
+# Operating System & Temporary Files
+# ==========================================
+[Tt]emp/
+[Tt]mp/
+.DS_Store
+Thumbs.db
+
+# ==========================================
+# NuGet & Package Caches
+# ==========================================
+*.nupkg
+*.snupkg
+**/packages/*
+!**/packages/build/
+project.lock.json
+project.assets.json
+
+# ==========================================
+# Single-File Publish & Release Artifacts
+# ==========================================
+*.exe
+*.dll
+*.pdb
+!/src/**/ExternalDlls/*.dll
