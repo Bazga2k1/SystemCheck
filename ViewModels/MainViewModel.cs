@@ -41,6 +41,10 @@ namespace SystemCheck.ViewModels
         public Brush ThemeControlBorder { get; private set; }
         public Brush ThemeSeparator { get; private set; }
 
+        // Dynamic Accent Button Colors
+        public Brush AccentButtonBackground { get; private set; }
+        public Brush AccentButtonHoverBackground { get; private set; }
+
         public Brush SuccessColor { get; private set; }
         public Brush ErrorColor { get; private set; }
         public Brush DefaultTextColor { get; private set; }
@@ -99,6 +103,10 @@ namespace SystemCheck.ViewModels
                 ThemeControlBorder = (Brush)bc.ConvertFrom("#555555");
                 ThemeSeparator = (Brush)bc.ConvertFrom("#444444");
 
+                // Darker blue for Dark Mode
+                AccentButtonBackground = (Brush)bc.ConvertFrom("#004080");
+                AccentButtonHoverBackground = (Brush)bc.ConvertFrom("#002B52");
+
                 SuccessColor = Brushes.LimeGreen;
                 ErrorColor = Brushes.Tomato;
                 DefaultTextColor = Brushes.LightGray;
@@ -111,6 +119,10 @@ namespace SystemCheck.ViewModels
                 ThemeControlForeground = (Brush)bc.ConvertFrom("#000000");
                 ThemeControlBorder = (Brush)bc.ConvertFrom("#CCCCCC");
                 ThemeSeparator = (Brush)bc.ConvertFrom("#DDDDDD");
+
+                // Original blue for Light Mode
+                AccentButtonBackground = (Brush)bc.ConvertFrom("#007ACC");
+                AccentButtonHoverBackground = (Brush)bc.ConvertFrom("#005C99");
 
                 SuccessColor = Brushes.Green;
                 ErrorColor = Brushes.Red;
