@@ -1,12 +1,107 @@
 ﻿<Window x:Class="SystemCheck.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        xmlns:local="clr-namespace:SystemCheck"
-        mc:Ignorable="d"
-        Title="MainWindow" Height="450" Width="800">
-    <Grid>
+        xmlns:local="clr-namespace:SystemCheck.ViewModels"
+        Title="Home Edition System Check" Height="550" Width="750" MinHeight="550" MinWidth="750">
+    
+    <Window.DataContext>
+        <local:MainViewModel />
+    </Window.DataContext>
 
+    <Grid Margin="15">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="320"/> <!-- Left Input Column -->
+            <ColumnDefinition Width="Auto"/> <!-- Splitter -->
+            <ColumnDefinition Width="*"/>    <!-- Right Results Column -->
+        </Grid.ColumnDefinitions>
+
+        <!-- 1. LEFT COLUMN: USER INPUT FORM -->
+        <StackPanel Grid.Column="0" Margin="0,0,15,0">
+            <TextBlock Text="Unesite minimalne zahtjeve:" FontWeight="Bold" FontSize="16" Margin="0,0,0,15"/>
+
+            <TextBlock Text="Minimalan broj jezgri (CPU):" Margin="0,5,0,2"/>
+            <TextBox Text="{Binding InputCpuCores, UpdateSourceTrigger=PropertyChanged}" Width="100" HorizontalAlignment="Left"/>
+
+            <TextBlock Text="Minimalna brzina procesora (GHz):" Margin="0,10,0,2"/>
+            <TextBox Text="{Binding InputCpuClockGhz, UpdateSourceTrigger=PropertyChanged}" Width="100" HorizontalAlignment="Left"/>
+
+            <TextBlock Text="Minimalan RAM (GB):" Margin="0,10,0,2"/>
+            <TextBox Text="{Binding InputRamGb, UpdateSourceTrigger=PropertyChanged}" Width="100" HorizontalAlignment="Left"/>
+
+            <TextBlock Text="Minimalan C: Disk prostor (GB):" Margin="0,10,0,2"/>
+            <TextBox Text="{Binding InputStorageGb, UpdateSourceTrigger=PropertyChanged}" Width="100" HorizontalAlignment="Left"/>
+
+            <TextBlock Text="Potreban Operativni Sustav:" Margin="0,10,0,2"/>
+            <ComboBox ItemsSource="{Binding AvailableOsList}" 
+                      SelectedItem="{Binding SelectedOs}" 
+                      Width="200" HorizontalAlignment="Left"/>
+
+            <TextBlock Text="Minimalna Generacija Grafičke (GPU):" Margin="0,10,0,2"/>
+            <ComboBox ItemsSource="{Binding AvailableGpuGenerations}" 
+                      SelectedItem="{Binding SelectedGpu}" 
+                      DisplayMemberPath="Key" 
+                      Width="280" HorizontalAlignment="Left"/>
+
+            <TextBlock Text="Obavezna Mapa na disku:" Margin="0,10,0,2"/>
+            <TextBox Text="{Binding InputDirectory, UpdateSourceTrigger=PropertyChanged}" Width="280" HorizontalAlignment="Left"/>
+
+            <Button Content="Provjeri Sustav" 
+                    Command="{Binding CheckSystemCommand}" 
+                    Width="150" 
+                    HorizontalAlignment="Left" 
+                    Margin="0,25,0,0" 
+                    Padding="8"/>
+        </StackPanel>
+
+        <!-- Vertical Line Separator -->
+        <Border Grid.Column="1" Width="1" Background="#DDDDDD" Margin="0,10,0,10"/>
+
+        <!-- 2. RIGHT COLUMN: STATUS RESULTS -->
+        <StackPanel Grid.Column="2" Margin="15,0,0,0">
+            <TextBlock Text="Rezultati provjere" FontWeight="Bold" FontSize="16" Margin="0,0,0,15"/>
+
+            <!-- CPU Cores -->
+            <TextBlock Text="Procesor (Jezgre):" FontWeight="SemiBold" Margin="0,5,0,0"/>
+            <TextBlock Text="{Binding CurrentCpuCores}" Foreground="{Binding CpuCoreColor}" FontWeight="Bold"/>
+
+            <!-- CPU Clock -->
+            <TextBlock Text="Procesor (Brzina takta):" FontWeight="SemiBold" Margin="0,10,0,0"/>
+            <TextBlock Text="{Binding CurrentCpuClock}" Foreground="{Binding CpuClockColor}" FontWeight="Bold"/>
+
+            <!-- RAM -->
+            <TextBlock Text="Radna Memorija (RAM):" FontWeight="SemiBold" Margin="0,10,0,0"/>
+            <TextBlock Text="{Binding CurrentRam}" Foreground="{Binding RamColor}" FontWeight="Bold"/>
+
+            <!-- Storage -->
+            <TextBlock Text="Pohrana (C: Disk):" FontWeight="SemiBold" Margin="0,10,0,0"/>
+            <TextBlock Text="{Binding CurrentStorage}" Foreground="{Binding StorageColor}" FontWeight="Bold"/>
+
+            <!-- OS -->
+            <TextBlock Text="Operativni Sustav:" FontWeight="SemiBold" Margin="0,10,0,0"/>
+            <TextBlock Text="{Binding CurrentOs}" Foreground="{Binding OsColor}" FontWeight="Bold" TextWrapping="Wrap"/>
+
+            <!-- GPU -->
+            <TextBlock Text="Grafička Kartica (GPU):" FontWeight="SemiBold" Margin="0,10,0,0"/>
+            <TextBlock Text="{Binding CurrentGpu}" Foreground="{Binding GpuColor}" FontWeight="Bold" TextWrapping="Wrap"/>
+
+            <!-- Directory -->
+            <TextBlock Text="Status obavezne mape:" FontWeight="SemiBold" Margin="0,10,0,0"/>
+            <TextBlock Text="{Binding InputDirectory}" Foreground="{Binding DirectoryColor}" FontWeight="Bold" TextWrapping="Wrap"/>
+
+            <!-- Status Legend -->
+            <Border BorderBrush="#CCCCCC" BorderThickness="1" Background="#FFFFFF" CornerRadius="4" Padding="10" Margin="0,20,0,0" VerticalAlignment="Bottom">
+                <StackPanel>
+                    <TextBlock Text="Legenda statusa:" FontWeight="SemiBold" Margin="0,0,0,6" FontSize="12"/>
+                    <StackPanel Orientation="Horizontal" Margin="0,3">
+                        <Border Width="12" Height="12" Background="Green" CornerRadius="2" Margin="0,0,8,0"/>
+                        <TextBlock Text="Zadovoljava minimalne uvjete" FontSize="11"/>
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Margin="0,3">
+                        <Border Width="12" Height="12" Background="Red" CornerRadius="2" Margin="0,0,8,0"/>
+                        <TextBlock Text="Ne zadovoljava uvjete ili nedostaje" FontSize="11"/>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+        </StackPanel>
     </Grid>
 </Window>
