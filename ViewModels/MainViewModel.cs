@@ -13,6 +13,8 @@ namespace SystemCheck.ViewModels
 {
     public class MainViewModel : INotifyPropertyChanged
     {
+        private bool _isDarkTheme = true;
+
         public List<string> AvailableOsList { get; private set; }
         public Dictionary<string, int> AvailableGpuGenerations { get; private set; }
 
@@ -31,27 +33,109 @@ namespace SystemCheck.ViewModels
         public string CurrentGpu { get; private set; }
         public string CurrentOs { get; private set; }
 
-        // Updated default colors for Dark Theme
-        public Brush CpuCoreColor { get; private set; } = Brushes.LightGray;
-        public Brush CpuClockColor { get; private set; } = Brushes.LightGray;
-        public Brush RamColor { get; private set; } = Brushes.LightGray;
-        public Brush StorageColor { get; private set; } = Brushes.LightGray;
-        public Brush GpuColor { get; private set; } = Brushes.LightGray;
-        public Brush OsColor { get; private set; } = Brushes.LightGray;
-        public Brush DirectoryColor { get; private set; } = Brushes.LightGray;
+        // --- Theme Colors ---
+        public Brush ThemeBackground { get; private set; }
+        public Brush ThemeForeground { get; private set; }
+        public Brush ThemeControlBackground { get; private set; }
+        public Brush ThemeControlForeground { get; private set; }
+        public Brush ThemeControlBorder { get; private set; }
+        public Brush ThemeSeparator { get; private set; }
+
+        public Brush SuccessColor { get; private set; }
+        public Brush ErrorColor { get; private set; }
+        public Brush DefaultTextColor { get; private set; }
+
+        // --- Output Status Colors ---
+        public Brush CpuCoreColor { get; private set; }
+        public Brush CpuClockColor { get; private set; }
+        public Brush RamColor { get; private set; }
+        public Brush StorageColor { get; private set; }
+        public Brush GpuColor { get; private set; }
+        public Brush OsColor { get; private set; }
+        public Brush DirectoryColor { get; private set; }
+
+        // --- Boolean State Trackers ---
+        private bool? _cpuCoresPassed;
+        private bool? _cpuClockPassed;
+        private bool? _ramPassed;
+        private bool? _storagePassed;
+        private bool? _osPassed;
+        private bool? _gpuPassed;
+        private bool? _directoryPassed;
 
         public ICommand CheckSystemCommand { get; private set; }
+        public ICommand ToggleThemeCommand { get; private set; }
 
         public MainViewModel()
         {
             PopulateDropdowns();
             CheckSystemCommand = new RelayCommand(p => PerformSystemCheck());
+            ToggleThemeCommand = new RelayCommand(p => ToggleTheme());
 
             InputCpuCores = "4";
             InputCpuClockGhz = "2.5";
             InputRamGb = "8";
             InputStorageGb = "50";
             InputDirectory = @"C:\MojaAplikacija";
+
+            ApplyTheme(true); // Start in Dark Mode
+        }
+
+        private void ToggleTheme()
+        {
+            _isDarkTheme = !_isDarkTheme;
+            ApplyTheme(_isDarkTheme);
+        }
+
+        private void ApplyTheme(bool isDark)
+        {
+            var bc = new BrushConverter();
+            if (isDark)
+            {
+                ThemeBackground = (Brush)bc.ConvertFrom("#1E1E1E");
+                ThemeForeground = (Brush)bc.ConvertFrom("#E0E0E0");
+                ThemeControlBackground = (Brush)bc.ConvertFrom("#2D2D2D");
+                ThemeControlForeground = (Brush)bc.ConvertFrom("#FFFFFF");
+                ThemeControlBorder = (Brush)bc.ConvertFrom("#555555");
+                ThemeSeparator = (Brush)bc.ConvertFrom("#444444");
+
+                SuccessColor = Brushes.LimeGreen;
+                ErrorColor = Brushes.Tomato;
+                DefaultTextColor = Brushes.LightGray;
+            }
+            else
+            {
+                ThemeBackground = (Brush)bc.ConvertFrom("#F0F0F0");
+                ThemeForeground = (Brush)bc.ConvertFrom("#000000");
+                ThemeControlBackground = (Brush)bc.ConvertFrom("#FFFFFF");
+                ThemeControlForeground = (Brush)bc.ConvertFrom("#000000");
+                ThemeControlBorder = (Brush)bc.ConvertFrom("#CCCCCC");
+                ThemeSeparator = (Brush)bc.ConvertFrom("#DDDDDD");
+
+                SuccessColor = Brushes.Green;
+                ErrorColor = Brushes.Red;
+                DefaultTextColor = Brushes.Black;
+            }
+
+            UpdateStatusColors();
+            OnPropertyChanged(""); // Refresh UI
+        }
+
+        private void UpdateStatusColors()
+        {
+            CpuCoreColor = GetColorForState(_cpuCoresPassed);
+            CpuClockColor = GetColorForState(_cpuClockPassed);
+            RamColor = GetColorForState(_ramPassed);
+            StorageColor = GetColorForState(_storagePassed);
+            OsColor = GetColorForState(_osPassed);
+            GpuColor = GetColorForState(_gpuPassed);
+            DirectoryColor = GetColorForState(_directoryPassed);
+        }
+
+        private Brush GetColorForState(bool? passed)
+        {
+            if (passed == null) return DefaultTextColor;
+            return passed.Value ? SuccessColor : ErrorColor;
         }
 
         private void PopulateDropdowns()
@@ -95,19 +179,17 @@ namespace SystemCheck.ViewModels
 
             CheckHardwareAndOS(req);
 
-            bool dirExists = false;
             try
             {
-                dirExists = !string.IsNullOrWhiteSpace(req.RequiredDirectory) && Directory.Exists(req.RequiredDirectory);
+                _directoryPassed = !string.IsNullOrWhiteSpace(req.RequiredDirectory) && Directory.Exists(req.RequiredDirectory);
             }
             catch (Exception ex)
             {
                 LogError("Directory Check Failed", ex);
-                dirExists = false;
+                _directoryPassed = false;
             }
 
-            // High Contrast Dark Mode Colors
-            DirectoryColor = dirExists ? Brushes.LimeGreen : Brushes.Tomato;
+            UpdateStatusColors();
             OnPropertyChanged(""); 
         }
 
@@ -117,7 +199,7 @@ namespace SystemCheck.ViewModels
             {
                 int actualCores = Environment.ProcessorCount;
                 CurrentCpuCores = $"Jezgre: {actualCores}";
-                CpuCoreColor = actualCores >= req.MinCpuCores ? Brushes.LimeGreen : Brushes.Tomato;
+                _cpuCoresPassed = actualCores >= req.MinCpuCores;
 
                 using (var searcher = new ManagementObjectSearcher("SELECT MaxClockSpeed FROM Win32_Processor"))
                 {
@@ -126,14 +208,14 @@ namespace SystemCheck.ViewModels
                         uint mhz = Convert.ToUInt32(item["MaxClockSpeed"]);
                         double ghz = mhz / 1000.0;
                         CurrentCpuClock = string.Format("Brzina: {0:0.00} GHz", ghz);
-                        CpuClockColor = ghz >= req.MinCpuClockGhz ? Brushes.LimeGreen : Brushes.Tomato;
+                        _cpuClockPassed = ghz >= req.MinCpuClockGhz;
                     }
                 }
             }
             catch (Exception ex)
             {
                 CurrentCpuClock = "Greška: " + ex.Message;
-                CpuClockColor = Brushes.Tomato;
+                _cpuClockPassed = false;
                 LogError("CPU Clock Check Failed", ex);
             }
 
@@ -142,12 +224,12 @@ namespace SystemCheck.ViewModels
                 DriveInfo cDrive = new DriveInfo("C");
                 long freeGb = cDrive.AvailableFreeSpace / (1024 * 1024 * 1024);
                 CurrentStorage = $"Slobodno: {freeGb} GB";
-                StorageColor = freeGb >= req.MinStorageGb ? Brushes.LimeGreen : Brushes.Tomato;
+                _storagePassed = freeGb >= req.MinStorageGb;
             }
             catch (Exception ex)
             {
                 CurrentStorage = "Greška diska: " + ex.Message;
-                StorageColor = Brushes.Tomato;
+                _storagePassed = false;
                 LogError("Storage Check Failed", ex);
             }
 
@@ -159,7 +241,7 @@ namespace SystemCheck.ViewModels
                     {
                         long ramGb = Convert.ToInt64(item["TotalPhysicalMemory"]) / (1024 * 1024 * 1024);
                         CurrentRam = $"RAM: {ramGb} GB";
-                        RamColor = ramGb >= req.MinRamGb ? Brushes.LimeGreen : Brushes.Tomato;
+                        _ramPassed = ramGb >= req.MinRamGb;
                     }
                 }
 
@@ -169,7 +251,7 @@ namespace SystemCheck.ViewModels
                     {
                         string osName = item["Caption"].ToString();
                         CurrentOs = osName;
-                        OsColor = osName.IndexOf(req.RequiredOs, StringComparison.OrdinalIgnoreCase) >= 0 ? Brushes.LimeGreen : Brushes.Tomato;
+                        _osPassed = osName.IndexOf(req.RequiredOs, StringComparison.OrdinalIgnoreCase) >= 0;
                     }
                 }
 
@@ -187,7 +269,7 @@ namespace SystemCheck.ViewModels
                             gpuFound = true;
                         }
                     }
-                    GpuColor = gpuFound ? Brushes.LimeGreen : Brushes.Tomato;
+                    _gpuPassed = gpuFound;
                 }
             }
             catch (Exception ex)
@@ -196,9 +278,9 @@ namespace SystemCheck.ViewModels
                 CurrentOs = "Greška WMI: " + ex.Message;
                 CurrentGpu = "Greška WMI: " + ex.Message;
                 
-                RamColor = Brushes.Tomato;
-                OsColor = Brushes.Tomato;
-                GpuColor = Brushes.Tomato;
+                _ramPassed = false;
+                _osPassed = false;
+                _gpuPassed = false;
 
                 LogError("WMI Checks Failed", ex);
             }
@@ -233,8 +315,7 @@ namespace SystemCheck.ViewModels
         public event PropertyChangedEventHandler PropertyChanged;
         protected void OnPropertyChanged(string propertyName)
         {
-            if (PropertyChanged != null)
-                PropertyChanged(this, new PropertyChangedEventArgs(propertyName));
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
         }
     }
 }
