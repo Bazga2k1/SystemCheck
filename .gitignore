@@ -5,6 +5,8 @@
 [Oo]bj/
 [LLEe]og/
 *.log
+bin/Debug
+obj/Debug
 
 # Project-specific error logs
 SystemCheck_Errors.log

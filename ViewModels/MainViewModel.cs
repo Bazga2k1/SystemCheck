@@ -13,11 +13,9 @@ namespace SystemCheck.ViewModels
 {
     public class MainViewModel : INotifyPropertyChanged
     {
-        // Dropdown Lists
         public List<string> AvailableOsList { get; private set; }
         public Dictionary<string, int> AvailableGpuGenerations { get; private set; }
 
-        // Input Bindings
         public string InputCpuCores { get; set; }
         public string InputCpuClockGhz { get; set; }
         public string InputRamGb { get; set; }
@@ -26,7 +24,6 @@ namespace SystemCheck.ViewModels
         public KeyValuePair<string, int> SelectedGpu { get; set; }
         public string InputDirectory { get; set; }
 
-        // Output Status Bindings
         public string CurrentCpuCores { get; private set; }
         public string CurrentCpuClock { get; private set; }
         public string CurrentRam { get; private set; }
@@ -34,13 +31,14 @@ namespace SystemCheck.ViewModels
         public string CurrentGpu { get; private set; }
         public string CurrentOs { get; private set; }
 
-        public Brush CpuCoreColor { get; private set; } = Brushes.Black;
-        public Brush CpuClockColor { get; private set; } = Brushes.Black;
-        public Brush RamColor { get; private set; } = Brushes.Black;
-        public Brush StorageColor { get; private set; } = Brushes.Black;
-        public Brush GpuColor { get; private set; } = Brushes.Black;
-        public Brush OsColor { get; private set; } = Brushes.Black;
-        public Brush DirectoryColor { get; private set; } = Brushes.Black;
+        // Updated default colors for Dark Theme
+        public Brush CpuCoreColor { get; private set; } = Brushes.LightGray;
+        public Brush CpuClockColor { get; private set; } = Brushes.LightGray;
+        public Brush RamColor { get; private set; } = Brushes.LightGray;
+        public Brush StorageColor { get; private set; } = Brushes.LightGray;
+        public Brush GpuColor { get; private set; } = Brushes.LightGray;
+        public Brush OsColor { get; private set; } = Brushes.LightGray;
+        public Brush DirectoryColor { get; private set; } = Brushes.LightGray;
 
         public ICommand CheckSystemCommand { get; private set; }
 
@@ -108,18 +106,18 @@ namespace SystemCheck.ViewModels
                 dirExists = false;
             }
 
-            DirectoryColor = dirExists ? Brushes.Green : Brushes.Red;
+            // High Contrast Dark Mode Colors
+            DirectoryColor = dirExists ? Brushes.LimeGreen : Brushes.Tomato;
             OnPropertyChanged(""); 
         }
 
         private void CheckHardwareAndOS(RequiredSpecsModel req)
         {
-            // CPU Cores & Clock
             try
             {
                 int actualCores = Environment.ProcessorCount;
                 CurrentCpuCores = $"Jezgre: {actualCores}";
-                CpuCoreColor = actualCores >= req.MinCpuCores ? Brushes.Green : Brushes.Red;
+                CpuCoreColor = actualCores >= req.MinCpuCores ? Brushes.LimeGreen : Brushes.Tomato;
 
                 using (var searcher = new ManagementObjectSearcher("SELECT MaxClockSpeed FROM Win32_Processor"))
                 {
@@ -128,33 +126,31 @@ namespace SystemCheck.ViewModels
                         uint mhz = Convert.ToUInt32(item["MaxClockSpeed"]);
                         double ghz = mhz / 1000.0;
                         CurrentCpuClock = string.Format("Brzina: {0:0.00} GHz", ghz);
-                        CpuClockColor = ghz >= req.MinCpuClockGhz ? Brushes.Green : Brushes.Red;
+                        CpuClockColor = ghz >= req.MinCpuClockGhz ? Brushes.LimeGreen : Brushes.Tomato;
                     }
                 }
             }
             catch (Exception ex)
             {
                 CurrentCpuClock = "Greška: " + ex.Message;
-                CpuClockColor = Brushes.Red;
+                CpuClockColor = Brushes.Tomato;
                 LogError("CPU Clock Check Failed", ex);
             }
 
-            // Storage
             try
             {
                 DriveInfo cDrive = new DriveInfo("C");
                 long freeGb = cDrive.AvailableFreeSpace / (1024 * 1024 * 1024);
                 CurrentStorage = $"Slobodno: {freeGb} GB";
-                StorageColor = freeGb >= req.MinStorageGb ? Brushes.Green : Brushes.Red;
+                StorageColor = freeGb >= req.MinStorageGb ? Brushes.LimeGreen : Brushes.Tomato;
             }
             catch (Exception ex)
             {
                 CurrentStorage = "Greška diska: " + ex.Message;
-                StorageColor = Brushes.Red;
+                StorageColor = Brushes.Tomato;
                 LogError("Storage Check Failed", ex);
             }
 
-            // RAM, OS, GPU
             try
             {
                 using (var searcher = new ManagementObjectSearcher("SELECT TotalPhysicalMemory FROM Win32_ComputerSystem"))
@@ -163,7 +159,7 @@ namespace SystemCheck.ViewModels
                     {
                         long ramGb = Convert.ToInt64(item["TotalPhysicalMemory"]) / (1024 * 1024 * 1024);
                         CurrentRam = $"RAM: {ramGb} GB";
-                        RamColor = ramGb >= req.MinRamGb ? Brushes.Green : Brushes.Red;
+                        RamColor = ramGb >= req.MinRamGb ? Brushes.LimeGreen : Brushes.Tomato;
                     }
                 }
 
@@ -173,7 +169,7 @@ namespace SystemCheck.ViewModels
                     {
                         string osName = item["Caption"].ToString();
                         CurrentOs = osName;
-                        OsColor = osName.IndexOf(req.RequiredOs, StringComparison.OrdinalIgnoreCase) >= 0 ? Brushes.Green : Brushes.Red;
+                        OsColor = osName.IndexOf(req.RequiredOs, StringComparison.OrdinalIgnoreCase) >= 0 ? Brushes.LimeGreen : Brushes.Tomato;
                     }
                 }
 
@@ -191,7 +187,7 @@ namespace SystemCheck.ViewModels
                             gpuFound = true;
                         }
                     }
-                    GpuColor = gpuFound ? Brushes.Green : Brushes.Red;
+                    GpuColor = gpuFound ? Brushes.LimeGreen : Brushes.Tomato;
                 }
             }
             catch (Exception ex)
@@ -200,9 +196,9 @@ namespace SystemCheck.ViewModels
                 CurrentOs = "Greška WMI: " + ex.Message;
                 CurrentGpu = "Greška WMI: " + ex.Message;
                 
-                RamColor = Brushes.Red;
-                OsColor = Brushes.Red;
-                GpuColor = Brushes.Red;
+                RamColor = Brushes.Tomato;
+                OsColor = Brushes.Tomato;
+                GpuColor = Brushes.Tomato;
 
                 LogError("WMI Checks Failed", ex);
             }
