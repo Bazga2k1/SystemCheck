@@ -4,6 +4,7 @@ using System.ComponentModel;
 using System.Globalization;
 using System.IO;
 using System.Management;
+using System.Text.Json;
 using System.Windows.Input;
 using System.Windows.Media;
 using SystemCheck.Commands;
@@ -14,6 +15,7 @@ namespace SystemCheck.ViewModels
     public class MainViewModel : INotifyPropertyChanged
     {
         private bool _isDarkTheme = true;
+        private readonly string _settingsPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "settings.json");
 
         public List<string> AvailableOsList { get; private set; }
         public Dictionary<string, int> AvailableGpuGenerations { get; private set; }
@@ -33,7 +35,7 @@ namespace SystemCheck.ViewModels
         public string CurrentGpu { get; private set; }
         public string CurrentOs { get; private set; }
 
-        // --- Theme Colors ---
+        // Theme Colors
         public Brush ThemeBackground { get; private set; }
         public Brush ThemeForeground { get; private set; }
         public Brush ThemeControlBackground { get; private set; }
@@ -41,15 +43,17 @@ namespace SystemCheck.ViewModels
         public Brush ThemeControlBorder { get; private set; }
         public Brush ThemeSeparator { get; private set; }
 
-        // Dynamic Accent Button Colors
+        // ComboBox Specific Brushes
+        public Brush ComboBoxBackground { get; private set; }
+        public Brush ComboBoxForeground { get; private set; } = Brushes.Black;
+
         public Brush AccentButtonBackground { get; private set; }
         public Brush AccentButtonHoverBackground { get; private set; }
-
         public Brush SuccessColor { get; private set; }
         public Brush ErrorColor { get; private set; }
         public Brush DefaultTextColor { get; private set; }
 
-        // --- Output Status Colors ---
+        // Output Status Colors
         public Brush CpuCoreColor { get; private set; }
         public Brush CpuClockColor { get; private set; }
         public Brush RamColor { get; private set; }
@@ -58,7 +62,7 @@ namespace SystemCheck.ViewModels
         public Brush OsColor { get; private set; }
         public Brush DirectoryColor { get; private set; }
 
-        // --- Boolean State Trackers ---
+        // Boolean State Trackers
         private bool? _cpuCoresPassed;
         private bool? _cpuClockPassed;
         private bool? _ramPassed;
@@ -69,85 +73,27 @@ namespace SystemCheck.ViewModels
 
         public ICommand CheckSystemCommand { get; private set; }
         public ICommand ToggleThemeCommand { get; private set; }
+        public ICommand AutoDetectCommand { get; private set; }
 
         public MainViewModel()
         {
             PopulateDropdowns();
             CheckSystemCommand = new RelayCommand(p => PerformSystemCheck());
             ToggleThemeCommand = new RelayCommand(p => ToggleTheme());
+            AutoDetectCommand = new RelayCommand(p => AutoDetectSpecs());
 
+            // 1. Load default fallback values
             InputCpuCores = "4";
             InputCpuClockGhz = "2.5";
             InputRamGb = "8";
             InputStorageGb = "50";
             InputDirectory = @"C:\MojaAplikacija";
 
-            ApplyTheme(true); // Start in Dark Mode
-        }
+            // 2. Override with saved settings if they exist
+            LoadSettings();
 
-        private void ToggleTheme()
-        {
-            _isDarkTheme = !_isDarkTheme;
+            // 3. Apply the theme (either default Dark, or loaded from settings)
             ApplyTheme(_isDarkTheme);
-        }
-
-        private void ApplyTheme(bool isDark)
-        {
-            var bc = new BrushConverter();
-            if (isDark)
-            {
-                ThemeBackground = (Brush)bc.ConvertFrom("#1E1E1E");
-                ThemeForeground = (Brush)bc.ConvertFrom("#E0E0E0");
-                ThemeControlBackground = (Brush)bc.ConvertFrom("#2D2D2D");
-                ThemeControlForeground = (Brush)bc.ConvertFrom("#FFFFFF");
-                ThemeControlBorder = (Brush)bc.ConvertFrom("#555555");
-                ThemeSeparator = (Brush)bc.ConvertFrom("#444444");
-
-                // Darker blue for Dark Mode
-                AccentButtonBackground = (Brush)bc.ConvertFrom("#004080");
-                AccentButtonHoverBackground = (Brush)bc.ConvertFrom("#002B52");
-
-                SuccessColor = Brushes.LimeGreen;
-                ErrorColor = Brushes.Tomato;
-                DefaultTextColor = Brushes.LightGray;
-            }
-            else
-            {
-                ThemeBackground = (Brush)bc.ConvertFrom("#F0F0F0");
-                ThemeForeground = (Brush)bc.ConvertFrom("#000000");
-                ThemeControlBackground = (Brush)bc.ConvertFrom("#FFFFFF");
-                ThemeControlForeground = (Brush)bc.ConvertFrom("#000000");
-                ThemeControlBorder = (Brush)bc.ConvertFrom("#CCCCCC");
-                ThemeSeparator = (Brush)bc.ConvertFrom("#DDDDDD");
-
-                // Original blue for Light Mode
-                AccentButtonBackground = (Brush)bc.ConvertFrom("#007ACC");
-                AccentButtonHoverBackground = (Brush)bc.ConvertFrom("#005C99");
-
-                SuccessColor = Brushes.Green;
-                ErrorColor = Brushes.Red;
-                DefaultTextColor = Brushes.Black;
-            }
-
-            UpdateStatusColors();
-            OnPropertyChanged(""); // Refresh UI
-        }
-
-        private void UpdateStatusColors()
-        {
-            CpuCoreColor = GetColorForState(_cpuCoresPassed);
-            CpuClockColor = GetColorForState(_cpuClockPassed);
-            RamColor = GetColorForState(_ramPassed);
-            StorageColor = GetColorForState(_storagePassed);
-            OsColor = GetColorForState(_osPassed);
-            GpuColor = GetColorForState(_gpuPassed);
-            DirectoryColor = GetColorForState(_directoryPassed);
-        }
-
-        private Brush GetColorForState(bool? passed)
-        {
-            if (passed == null) return DefaultTextColor;
-            return passed.Value ? SuccessColor : ErrorColor;
         }
 
         private void PopulateDropdowns()
@@ -170,6 +116,217 @@ namespace SystemCheck.ViewModels
                 { "Generacija 2022 (RTX 4000 / RX 7000 / Intel ARC)", 2022 },
                 { "Generacija 2025 (RTX 5000 / RX 8000 serija)", 2025 }
             };
+
+            // Default GPU selection for initial launch
+            using (var enumerator = AvailableGpuGenerations.GetEnumerator())
+            {
+                if (enumerator.MoveNext())
+                {
+                    SelectedGpu = enumerator.Current;
+                }
+            }
+        }
+
+        private void AutoDetectSpecs()
+        {
+            try
+            {
+                InputCpuCores = Environment.ProcessorCount.ToString();
+
+                using (var searcher = new ManagementObjectSearcher("SELECT MaxClockSpeed FROM Win32_Processor"))
+                {
+                    foreach (var item in searcher.Get())
+                    {
+                        double ghz = Convert.ToUInt32(item["MaxClockSpeed"]) / 1000.0;
+                        InputCpuClockGhz = ghz.ToString("0.0", CultureInfo.InvariantCulture);
+                    }
+                }
+
+                using (var searcher = new ManagementObjectSearcher("SELECT TotalPhysicalMemory FROM Win32_ComputerSystem"))
+                {
+                    foreach (var item in searcher.Get())
+                    {
+                        long ramGb = Convert.ToInt64(item["TotalPhysicalMemory"]) / (1024 * 1024 * 1024);
+                        InputRamGb = ramGb.ToString();
+                    }
+                }
+
+                DriveInfo cDrive = new DriveInfo("C");
+                InputStorageGb = (cDrive.TotalSize / (1024 * 1024 * 1024)).ToString();
+
+                using (var searcher = new ManagementObjectSearcher("SELECT Caption FROM Win32_OperatingSystem"))
+                {
+                    foreach (var item in searcher.Get())
+                    {
+                        string osName = item["Caption"].ToString();
+                        foreach (string os in AvailableOsList)
+                        {
+                            if (osName.IndexOf(os, StringComparison.OrdinalIgnoreCase) >= 0)
+                            {
+                                SelectedOs = os;
+                                break;
+                            }
+                        }
+                    }
+                }
+
+                using (var searcher = new ManagementObjectSearcher("SELECT Name FROM Win32_VideoController"))
+                {
+                    foreach (var item in searcher.Get())
+                    {
+                        int year = EstimateGpuGenerationYear(item["Name"].ToString());
+                        foreach (var kvp in AvailableGpuGenerations)
+                        {
+                            if (kvp.Value == year)
+                            {
+                                SelectedGpu = kvp;
+                                break;
+                            }
+                        }
+                    }
+                }
+
+                SaveSettings();
+                OnPropertyChanged("");
+            }
+            catch (Exception ex)
+            {
+                LogError("Auto-Detect Specs Failed", ex);
+            }
+        }
+
+        private void LoadSettings()
+        {
+            try
+            {
+                if (File.Exists(_settingsPath))
+                {
+                    string json = File.ReadAllText(_settingsPath);
+                    var settings = JsonSerializer.Deserialize<AppSettings>(json);
+                    
+                    if (settings != null)
+                    {
+                        if (!string.IsNullOrEmpty(settings.CpuCores)) InputCpuCores = settings.CpuCores;
+                        if (!string.IsNullOrEmpty(settings.CpuClock)) InputCpuClockGhz = settings.CpuClock;
+                        if (!string.IsNullOrEmpty(settings.Ram)) InputRamGb = settings.Ram;
+                        if (!string.IsNullOrEmpty(settings.Storage)) InputStorageGb = settings.Storage;
+                        if (!string.IsNullOrEmpty(settings.Directory)) InputDirectory = settings.Directory;
+                        if (!string.IsNullOrEmpty(settings.Os)) SelectedOs = settings.Os;
+                        
+                        _isDarkTheme = settings.IsDarkTheme;
+
+                        foreach (var kvp in AvailableGpuGenerations)
+                        {
+                            if (kvp.Value == settings.GpuYear)
+                            {
+                                SelectedGpu = kvp;
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                LogError("Failed to Load Settings", ex);
+            }
+        }
+
+        private void SaveSettings()
+        {
+            try
+            {
+                var settings = new AppSettings
+                {
+                    CpuCores = InputCpuCores,
+                    CpuClock = InputCpuClockGhz,
+                    Ram = InputRamGb,
+                    Storage = InputStorageGb,
+                    Os = SelectedOs,
+                    GpuYear = SelectedGpu.Value,
+                    Directory = InputDirectory,
+                    IsDarkTheme = _isDarkTheme
+                };
+
+                string json = JsonSerializer.Serialize(settings, new JsonSerializerOptions { WriteIndented = true });
+                File.WriteAllText(_settingsPath, json);
+            }
+            catch (Exception ex)
+            {
+                LogError("Failed to Save Settings", ex);
+            }
+        }
+
+        private void ToggleTheme()
+        {
+            _isDarkTheme = !_isDarkTheme;
+            ApplyTheme(_isDarkTheme);
+            SaveSettings();
+        }
+
+        private void ApplyTheme(bool isDark)
+        {
+            var bc = new BrushConverter();
+            if (isDark)
+            {
+                ThemeBackground = (Brush)bc.ConvertFrom("#1E1E1E");
+                ThemeForeground = (Brush)bc.ConvertFrom("#E0E0E0");
+                ThemeControlBackground = (Brush)bc.ConvertFrom("#2D2D2D");
+                ThemeControlForeground = (Brush)bc.ConvertFrom("#FFFFFF");
+                ThemeControlBorder = (Brush)bc.ConvertFrom("#555555");
+                ThemeSeparator = (Brush)bc.ConvertFrom("#444444");
+
+                // High-contrast background for ComboBoxes in Dark Mode
+                ComboBoxBackground = (Brush)bc.ConvertFrom("#D0D0D0");
+                ComboBoxForeground = Brushes.Black;
+
+                AccentButtonBackground = (Brush)bc.ConvertFrom("#004080");
+                AccentButtonHoverBackground = (Brush)bc.ConvertFrom("#002B52");
+
+                SuccessColor = Brushes.LimeGreen;
+                ErrorColor = Brushes.Tomato;
+                DefaultTextColor = Brushes.LightGray;
+            }
+            else
+            {
+                ThemeBackground = (Brush)bc.ConvertFrom("#F0F0F0");
+                ThemeForeground = (Brush)bc.ConvertFrom("#000000");
+                ThemeControlBackground = (Brush)bc.ConvertFrom("#FFFFFF");
+                ThemeControlForeground = (Brush)bc.ConvertFrom("#000000");
+                ThemeControlBorder = (Brush)bc.ConvertFrom("#CCCCCC");
+                ThemeSeparator = (Brush)bc.ConvertFrom("#DDDDDD");
+
+                // Clean white background for ComboBoxes in Light Mode
+                ComboBoxBackground = (Brush)bc.ConvertFrom("#FFFFFF");
+                ComboBoxForeground = Brushes.Black;
+
+                AccentButtonBackground = (Brush)bc.ConvertFrom("#007ACC");
+                AccentButtonHoverBackground = (Brush)bc.ConvertFrom("#005C99");
+
+                SuccessColor = Brushes.Green;
+                ErrorColor = Brushes.Red;
+                DefaultTextColor = Brushes.Black;
+            }
+
+            UpdateStatusColors();
+            OnPropertyChanged(""); 
+        }
+
+        private void UpdateStatusColors()
+        {
+            CpuCoreColor = GetColorForState(_cpuCoresPassed);
+            CpuClockColor = GetColorForState(_cpuClockPassed);
+            RamColor = GetColorForState(_ramPassed);
+            StorageColor = GetColorForState(_storagePassed);
+            OsColor = GetColorForState(_osPassed);
+            GpuColor = GetColorForState(_gpuPassed);
+            DirectoryColor = GetColorForState(_directoryPassed);
+        }
+
+        private Brush GetColorForState(bool? passed)
+        {
+            if (passed == null) return DefaultTextColor;
+            return passed.Value ? SuccessColor : ErrorColor;
         }
 
         private void PerformSystemCheck()
@@ -202,6 +359,7 @@ namespace SystemCheck.ViewModels
             }
 
             UpdateStatusColors();
+            SaveSettings();
             OnPropertyChanged(""); 
         }
 
@@ -303,11 +461,18 @@ namespace SystemCheck.ViewModels
             if (string.IsNullOrEmpty(gpuName)) return 0;
             string name = gpuName.ToUpper();
 
+            // Discrete GPUs
             if (name.Contains("RTX 50") || name.Contains("RX 80")) return 2025;
             if (name.Contains("RTX 40") || name.Contains("RX 70") || name.Contains("ARC")) return 2022;
             if (name.Contains("RTX 30") || name.Contains("RX 60")) return 2020;
             if (name.Contains("RTX 20") || name.Contains("GTX 16") || name.Contains("RX 5000")) return 2018;
             if (name.Contains("GTX 10") || name.Contains("RX 500") || name.Contains("RX 400")) return 2016;
+
+            // Integrated APUs
+            if (name.Contains("RADEON GRAPHICS") || name.Contains("RADEON(TM) GRAPHICS")) return 2020;
+            if (name.Contains("IRIS XE") || name.Contains("UHD GRAPHICS")) return 2020;
+            if (name.Contains("VEGA")) return 2018;
+            if (name.Contains("HD GRAPHICS")) return 2015;
 
             return 2015; 
         }
