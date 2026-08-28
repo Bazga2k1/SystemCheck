@@ -1,12 +1,10 @@
 # ==========================================
 # Build & Binary Outputs
 # ==========================================
-[Bb]in/
-[Oo]bj/
-[LLEe]og/
+bin/
+obj/
+log/
 *.log
-bin/Debug
-obj/Debug
 
 # Project-specific error logs
 SystemCheck_Errors.log
